@@ -246,12 +246,47 @@ export namespace flow.feature {
     }
 
     export async function precheck() {
+        // Skip sync check if offline work is allowed and sync is not required
+        if (config.allowOfflineWork && !config.requireSync) {
+            return
+        }
+
         const local_develop = await developBranch()
         const remote_develop = git.BranchRef.fromName(
             `origin/${local_develop.name}`
         )
+
+        // Only check if remote exists AND we have network connectivity
         if (await remote_develop.exists()) {
-            await git.requireEqual(local_develop, remote_develop, true)
+            try {
+                await git.requireEqual(local_develop, remote_develop, true)
+            } catch (error: any) {
+                // If it's a divergence error, make it less strict
+                if (error.message && error.message.includes('has diverged from')) {
+                    const choice = await vscode.window.showWarningMessage(
+                        `Branch "${local_develop.name}" has diverged from ${remote_develop.name}. ` +
+                        `This might cause conflicts later.`,
+                        'Continue Anyway',
+                        'Pull Changes',
+                        'Cancel'
+                    )
+
+                    if (choice === 'Pull Changes') {
+                        try {
+                            await git.pull(git.primaryRemote(), local_develop)
+                            vscode.window.showInformationMessage('Successfully pulled changes from remote.')
+                        } catch (pullError) {
+                            vscode.window.showErrorMessage('Failed to pull changes. You may need to resolve conflicts manually.')
+                            throw pullError
+                        }
+                    } else if (choice === 'Cancel') {
+                        throw error
+                    }
+                    // If 'Continue Anyway', just proceed
+                    return
+                }
+                throw error
+            }
         }
     }
 
