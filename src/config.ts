@@ -40,6 +40,26 @@ class ConfigReader {
     get default_task(): string {
         return this._readConfig<string>('default.task', 'task')
     }
+
+    get cardIntegrationEnabled(): boolean {
+        return this._readConfig<boolean>('cardIntegration.enabled', false)
+    }
+
+    get cardIntegrationPrefix(): string {
+        return this._readConfig<string>('cardIntegration.prefix', '')
+    }
+
+    get cardIntegrationFormat(): string {
+        return this._readConfig<string>('cardIntegration.format', '{type}/{prefix}{cardId}-{name}')
+    }
+
+    get cardIntegrationValidation(): string {
+        return this._readConfig<string>('cardIntegration.validation', '^[0-9]+$')
+    }
+
+    get cardIntegrationRequired(): boolean {
+        return this._readConfig<boolean>('cardIntegration.required', false)
+    }
 }
 
 export const config = new ConfigReader()

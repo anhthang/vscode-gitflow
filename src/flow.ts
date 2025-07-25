@@ -4,6 +4,7 @@ import * as vscode from 'vscode'
 
 import * as path from 'path'
 
+import { CardIntegration } from './card'
 import { cmd } from './cmd'
 import { config } from './config'
 import { fail } from './fail'
@@ -298,9 +299,48 @@ export namespace flow.feature {
         if (!prefix) {
             throw throwNotInitializedError()
         }
-        const new_branch = git.BranchRef.fromName(`${prefix}${feature_name}`)
+        // Sempre modo tradicional: prefixo + nome
+        let branchName = `${prefix}${feature_name}`;
+        const new_branch = git.BranchRef.fromName(branchName)
         await requireNoSuchBranch(new_branch, {
             message: `The ${branchType} "${feature_name}" already exists`,
+        })
+
+        // Create our new branch
+        const local_develop = await developBranch()
+        await cmd.executeRequired(git.info.path, [
+            'checkout',
+            '-b',
+            new_branch.name,
+            local_develop.name,
+        ])
+        vscode.window.showInformationMessage(
+            `New branch "${new_branch.name}" was created`
+        )
+    }
+
+    /**
+     * Start a new feature with card integration support
+     */
+    export async function startWithCardIntegration(branchType: string) {
+        await requireFlowEnabled()
+
+        const prefix = await feature.prefix(branchType)
+        if (!prefix) {
+            throw throwNotInitializedError()
+        }
+
+        // Get branch name using card integration
+        const branchName = await CardIntegration.showBranchInputDialog(branchType)
+        let new_branch;
+        if (config.cardIntegrationEnabled) {
+            new_branch = git.BranchRef.fromName(branchName)
+        } else {
+            new_branch = git.BranchRef.fromName(`${prefix}${branchName}`)
+        }
+
+        await requireNoSuchBranch(new_branch, {
+            message: `The ${branchType} "${branchName}" already exists`,
         })
 
         // Create our new branch
@@ -549,7 +589,13 @@ export namespace flow.release {
         }
 
         const prefix = await releasePrefix()
-        const new_branch = git.BranchRef.fromName(`${prefix}${name}`)
+        let branchName;
+        if (config.cardIntegrationEnabled) {
+            branchName = CardIntegration.formatBranchName('release', '', name);
+        } else {
+            branchName = `${prefix}${name}`;
+        }
+        const new_branch = git.BranchRef.fromName(branchName)
         const develop = await developBranch()
         await cmd.executeRequired(git.info.path, [
             'checkout',
@@ -561,6 +607,43 @@ export namespace flow.release {
             `New branch ${new_branch.name} has been created. ` +
             `Now is the time to update your version numbers and fix any ` +
             `last minute bugs.`
+        )
+    }
+    /**
+     * Start a new support branch with card integration support
+     */
+    export const supportStartWithCardIntegration = supportStartWithCardIntegrationImpl;
+    async function supportStartWithCardIntegrationImpl() {
+        await requireFlowEnabled()
+
+        const prefix = await git.config.get('gitflow.prefix.support')
+        if (!prefix) {
+            throw throwNotInitializedError()
+        }
+
+        // Get branch name using card integration
+        const branchName = await CardIntegration.showBranchInputDialog('support')
+        let new_branch;
+        if (config.cardIntegrationEnabled) {
+            new_branch = git.BranchRef.fromName(branchName)
+        } else {
+            new_branch = git.BranchRef.fromName(`${prefix}${branchName}`)
+        }
+
+        await requireNoSuchBranch(new_branch, {
+            message: `The support branch "${branchName}" already exists`,
+        })
+
+        // Create our new branch from master
+        const master = await masterBranch()
+        await cmd.executeRequired(git.info.path, [
+            'checkout',
+            '-b',
+            new_branch.name,
+            master.name,
+        ])
+        vscode.window.showInformationMessage(
+            `New support branch "${new_branch.name}" was created`
         )
     }
 
@@ -781,7 +864,15 @@ export namespace flow.hotfix {
         }
 
         const prefix = await hotfix.prefix()
-        const new_branch = git.BranchRef.fromName(`${prefix}${name}`)
+        let branchName;
+        if (config.cardIntegrationEnabled) {
+            // Usa apenas o template, sem prefixo manual
+            branchName = CardIntegration.formatBranchName('hotfix', '', name);
+        } else {
+            // Modo tradicional: prefixo + nome
+            branchName = `${prefix}${name}`;
+        }
+        const new_branch = git.BranchRef.fromName(branchName)
         if (await new_branch.exists()) {
             fail.error({
                 message: `"${new_branch.name}" is the name of an existing branch`,
@@ -904,9 +995,74 @@ export namespace flow.task {
             throw throwNotInitializedError()
         }
 
-        // Create task branch name: task/feature-name/task-name
-        const taskBranchName = `${prefix}${currentFeature.name}/${task_name}`
-        const new_branch = git.BranchRef.fromName(taskBranchName)
+        let branchName;
+        if (config.cardIntegrationEnabled) {
+            // Usa apenas o template, sem prefixo manual
+            branchName = CardIntegration.formatBranchName('task', '', task_name, currentFeature.name);
+        } else {
+            // Modo tradicional: prefixo + nome
+            branchName = `${prefix}${currentFeature.name}/${task_name}`;
+        }
+        const new_branch = git.BranchRef.fromName(branchName)
+
+        // Check if task branch already exists
+        if (await new_branch.exists()) {
+            throw fail.error({
+                message: `Task branch "${new_branch.name}" already exists`
+            })
+        }
+
+        // Ensure feature branch is clean
+        await git.requireClean()
+
+        return withProgress(
+            {
+                location: vscode.ProgressLocation.Window,
+                title: 'Creating task branch...',
+            },
+            async (pr) => {
+                pr.report({ message: 'Creating task branch...' })
+
+                // Create task branch from current feature branch
+                await cmd.executeRequired(git.info.path, [
+                    'checkout',
+                    '-b',
+                    new_branch.name,
+                    currentFeature.branch.name,
+                ])
+
+                vscode.window.showInformationMessage(
+                    `Task branch "${new_branch.name}" created successfully from feature "${currentFeature.branch.name}"!`
+                )
+            }
+        )
+    }
+
+    /**
+     * Start a new task with card integration support
+     */
+    export async function startWithCardIntegration() {
+        await requireFlowEnabled()
+
+        // Ensure we're on a feature branch
+        const currentFeature = await requireFeatureBranch()
+
+        const prefix = await task.prefix()
+        if (!prefix) {
+            throw throwNotInitializedError()
+        }
+
+        // Extract parent card info from current feature
+        const parentInfo = CardIntegration.extractParentCardInfo(currentFeature.branch.name)
+
+        // Get task name using card integration
+        const taskBranchName = await CardIntegration.showBranchInputDialog('task', parentInfo)
+        let new_branch;
+        if (config.cardIntegrationEnabled) {
+            new_branch = git.BranchRef.fromName(taskBranchName)
+        } else {
+            new_branch = git.BranchRef.fromName(`${prefix}${taskBranchName}`)
+        }
 
         // Check if task branch already exists
         if (await new_branch.exists()) {

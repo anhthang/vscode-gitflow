@@ -1,6 +1,7 @@
 'use strict'
 
 import * as vscode from 'vscode'
+import { config } from './config'
 import { fail } from './fail'
 import { flow } from './flow'
 import { findGit, git } from './git'
@@ -68,17 +69,8 @@ async function setup(disposables: vscode.Disposable[]) {
             await selectRepo()
             await runWrapped(flow.requireFlowEnabled)
             await runWrapped(flow.feature.precheck)
-            const name = await vscode.window.showInputBox({
-                placeHolder: 'my-awesome-feature',
-                prompt: 'A new name for your feature',
-            })
-            if (!name) {
-                return
-            }
-            await runWrapped(flow.feature.start, [
-                name.split(' ').join('-'),
-                'feature',
-            ])
+
+            await runWrapped(flow.feature.startWithCardIntegration, ['feature'])
         }),
         vscode.commands.registerCommand('gitflow.featureRebase', async () => {
             await selectRepo()
@@ -92,17 +84,7 @@ async function setup(disposables: vscode.Disposable[]) {
             await selectRepo()
             await runWrapped(flow.requireFlowEnabled)
             await runWrapped(flow.feature.precheck)
-            const name = await vscode.window.showInputBox({
-                placeHolder: 'my-awesome-bugfix',
-                prompt: 'A new name for your bugfix',
-            })
-            if (!name) {
-                return
-            }
-            await runWrapped(flow.feature.start, [
-                name.split(' ').join('-'),
-                'bugfix',
-            ])
+            await runWrapped(flow.feature.startWithCardIntegration, ['bugfix'])
         }),
         vscode.commands.registerCommand('gitflow.bugfixRebase', async () => {
             await selectRepo()
@@ -116,15 +98,17 @@ async function setup(disposables: vscode.Disposable[]) {
             await selectRepo()
             await runWrapped(flow.requireFlowEnabled)
             await runWrapped(flow.release.precheck)
-            const guessedVersion =
-                (await runWrapped(flow.release.guess_new_version)) || ''
-            const name = await vscode.window.showInputBox({
-                placeHolder: guessedVersion,
-                prompt: 'The name of the release',
-                value: guessedVersion,
-            })
-            if (!name) {
-                return
+            const guessedVersion = (await runWrapped(flow.release.guess_new_version)) || ''
+            let name = guessedVersion;
+            if (!config.cardIntegrationEnabled) {
+                name = await vscode.window.showInputBox({
+                    placeHolder: guessedVersion,
+                    prompt: 'The name of the release',
+                    value: guessedVersion,
+                }) || '';
+                if (!name) {
+                    return;
+                }
             }
             await runWrapped(flow.release.start, [name.split(' ').join('-')])
         }),
@@ -135,17 +119,7 @@ async function setup(disposables: vscode.Disposable[]) {
         vscode.commands.registerCommand('gitflow.hotfixStart', async () => {
             await selectRepo()
             await runWrapped(flow.requireFlowEnabled)
-            const guessedVersion =
-                (await runWrapped(flow.hotfix.guess_new_version)) || ''
-            const name = await vscode.window.showInputBox({
-                placeHolder: guessedVersion,
-                prompt: 'The name of the hotfix version',
-                value: guessedVersion,
-            })
-            if (!name) {
-                return
-            }
-            await runWrapped(flow.hotfix.start, [name.split(' ').join('-')])
+            await runWrapped(flow.feature.startWithCardIntegration, ['hotfix'])
         }),
         vscode.commands.registerCommand('gitflow.hotfixFinish', async () => {
             await selectRepo()
@@ -154,14 +128,8 @@ async function setup(disposables: vscode.Disposable[]) {
         vscode.commands.registerCommand('gitflow.taskStart', async () => {
             await selectRepo()
             await runWrapped(flow.requireFlowEnabled)
-            const name = await vscode.window.showInputBox({
-                placeHolder: 'task-name',
-                prompt: 'The name of the task',
-            })
-            if (!name) {
-                return
-            }
-            await runWrapped(flow.task.start, [name.split(' ').join('-')])
+
+            await runWrapped(flow.task.startWithCardIntegration)
         }),
         vscode.commands.registerCommand('gitflow.taskFinish', async () => {
             await selectRepo()
