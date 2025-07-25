@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-07-25
+### Added
+* Card integration for branch naming (feature, bugfix, hotfix, release, support, task) with customizable template
+* Commands and configuration for task management in the Gitflow workflow
+* Settings for offline work and optional sync checking
+
 ## [2.1.0] - 2020-05-29
 ### Added
 - New configuration options:
