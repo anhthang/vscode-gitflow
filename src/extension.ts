@@ -1,9 +1,9 @@
 'use strict'
 
 import * as vscode from 'vscode'
-import { findGit, git } from './git'
-import { flow } from './flow'
 import { fail } from './fail'
+import { flow } from './flow'
+import { findGit, git } from './git'
 
 async function selectRepo() {
     const folders = vscode.workspace.workspaceFolders || []
@@ -24,17 +24,18 @@ async function selectRepo() {
 }
 
 async function runWrapped<T>(
-    fn: (...any) => Thenable<T>,
+    fn: (...args: any[]) => Thenable<T>,
     args: any[] = []
 ): Promise<T | null> {
     try {
         return await fn(...args)
     } catch (e) {
-        if (!e.handlers && !e.message) {
+        const error = e as any;
+        if (!error.handlers && !error.message) {
             throw e
         }
 
-        const err: fail.IError = e
+        const err: fail.IError = error
         const chosen = await vscode.window.showErrorMessage(
             err.message,
             ...(err.handlers || [])
@@ -53,9 +54,9 @@ async function setup(disposables: vscode.Disposable[]) {
     git.info = await findGit(pathHint)
     vscode.window.setStatusBarMessage(
         'gitflow using git executable: ' +
-            git.info.path +
-            ' with version ' +
-            git.info.version,
+        git.info.path +
+        ' with version ' +
+        git.info.version,
         5000
     )
     const commands = [
@@ -166,4 +167,4 @@ export function activate(context: vscode.ExtensionContext) {
     setup(disposables).catch((err) => console.error(err))
 }
 
-export function deactivate() {}
+export function deactivate() { }

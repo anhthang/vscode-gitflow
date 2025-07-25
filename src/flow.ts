@@ -4,11 +4,11 @@ import * as vscode from 'vscode'
 
 import * as path from 'path'
 
-import { fail } from './fail'
-import { git } from './git'
 import { cmd } from './cmd'
-import { fs } from './fs'
 import { config } from './config'
+import { fail } from './fail'
+import { fs } from './fs'
+import { git } from './git'
 
 const withProgress = vscode.window.withProgress
 
@@ -38,7 +38,10 @@ export namespace flow {
     export function developBranch(): Promise<git.BranchRef> {
         return git.config
             .get('gitflow.branch.develop')
-            .then(git.BranchRef.fromName)
+            .then((name: string | null) => {
+                if (!name) throw new Error('Develop branch not configured');
+                return git.BranchRef.fromName(name);
+            })
     }
 
     /**
@@ -47,7 +50,10 @@ export namespace flow {
     export function masterBranch(): Promise<git.BranchRef> {
         return git.config
             .get('gitflow.branch.master')
-            .then(git.BranchRef.fromName)
+            .then((name: string | null) => {
+                if (!name) throw new Error('Master branch not configured');
+                return git.BranchRef.fromName(name);
+            })
     }
 
     export async function flowEnabled(): Promise<boolean> {
@@ -104,7 +110,7 @@ export namespace flow {
             if (!do_reinit) return
         }
 
-        const branchNonEmpty = (str) =>
+        const branchNonEmpty = (str: string) =>
             !!str ? '' : 'A branch name is required'
         const master_name = await vscode.window.showInputBox({
             prompt: 'Enter a name for the production branch',
@@ -128,7 +134,6 @@ export namespace flow {
         const master = git.BranchRef.fromName(master_name)
 
         const remote_develop = git.BranchRef.fromName('origin/' + develop_name)
-        const remote_master = git.BranchRef.fromName('origin/' + master_name)
 
         // Check if the repository needs to be initialized before we proceed
         if (
@@ -245,7 +250,6 @@ export namespace flow.feature {
         const remote_develop = git.BranchRef.fromName(
             `origin/${local_develop.name}`
         )
-        const local_ref = await local_develop.ref()
         if (await remote_develop.exists()) {
             await git.requireEqual(local_develop, remote_develop, true)
         }
@@ -291,8 +295,8 @@ export namespace flow.feature {
         if ((await remote.exists()) && !(await git.isMerged(remote, develop))) {
             const do_rebase = !!(await vscode.window.showWarningMessage(
                 `A remote branch for ${feature_branch.name} exists, and rebasing ` +
-                    `will rewrite history for this branch that may be visible to ` +
-                    `other users!`,
+                `will rewrite history for this branch that may be visible to ` +
+                `other users!`,
                 'Rebase anyway'
             ))
             if (!do_rebase) return
@@ -304,7 +308,7 @@ export namespace flow.feature {
             onto: develop,
         })
         if (result.retc) {
-            const abort_result = await cmd.executeRequired(git.info.path, [
+            await cmd.executeRequired(git.info.path, [
                 'rebase',
                 '--abort',
             ])
@@ -330,7 +334,6 @@ export namespace flow.feature {
                 pr.report({ message: 'Getting current branch...' })
                 const {
                     branch: feature_branch,
-                    name: feature_name,
                 } = await current(
                     `You must checkout the ${branchType} branch you wish to finish`,
                     branchType
@@ -388,7 +391,7 @@ export namespace flow.feature {
 
                 let mergeFlag = '--no-ff'
                 let squashCommitMsg: string | undefined
-                
+
                 const cnt = await cmd.execute(git.info.path, ['rev-list', '--count', 'HEAD', `^${develop.name}`])
                 if (cnt.stdout.trim() === '1') {
                     // fast-forward merge if only 1 change
@@ -520,8 +523,8 @@ export namespace flow.release {
         ])
         await vscode.window.showInformationMessage(
             `New branch ${new_branch.name} has been created. ` +
-                `Now is the time to update your version numbers and fix any ` +
-                `last minute bugs.`
+            `Now is the time to update your version numbers and fix any ` +
+            `last minute bugs.`
         )
     }
 

@@ -37,7 +37,7 @@ export namespace cmd {
                 console.log(
                     `[gitflow] Command "${command}" returned code ${retc}: ${stderr_acc}`
                 )
-                resolve({ retc: retc, stdout: stdout_acc, stderr: stderr_acc })
+                resolve({ retc: retc || 0, stdout: stdout_acc, stderr: stderr_acc })
             })
         })
     }
