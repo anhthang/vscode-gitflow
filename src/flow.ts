@@ -190,6 +190,7 @@ export namespace flow {
             'release',
             'hotfix',
             'support',
+            'task',
         ]) {
             const prefix = await vscode.window.showInputBox({
                 prompt: `Enter a prefix for "${what}" branches`,
@@ -805,5 +806,203 @@ export namespace flow.hotfix {
             throw fail.error({ message: 'No active hotfix branch to finish' })
         }
         await release.finalizeWithBranch(prefix, current_hotfix, finish)
+    }
+}
+
+export namespace flow.task {
+    /**
+     * Get the task branch prefix
+     */
+    export function prefix() {
+        return git.config.get('gitflow.prefix.task')
+    }
+
+    /**
+     * Get the current task branch, or null if there is none
+     */
+    export async function current() {
+        const current_branch = await git.currentBranch()
+        const prefix = await task.prefix()
+        if (!prefix) {
+            return null
+        }
+        if (!current_branch || !current_branch.name.startsWith(prefix)) {
+            return null
+        }
+        return current_branch
+    }
+
+    /**
+     * Get the origin feature branch for the current task
+     * Extracted from task branch name format: task/feature-name/task-name
+     */
+    export async function getOriginFeatureBranch(): Promise<git.BranchRef> {
+        const current_task = await task.current()
+        if (!current_task) {
+            throw fail.error({
+                message: 'Not currently on a task branch'
+            })
+        }
+
+        const prefix = await task.prefix()
+        if (!prefix) {
+            throw fail.error({
+                message: 'Task prefix not configured'
+            })
+        }
+
+        // Extract feature name from task branch name
+        // Expected format: task/feature-name/task-name
+        const taskPath = current_task.name.substring(prefix.length)
+        const pathParts = taskPath.split('/')
+        if (pathParts.length < 2) {
+            throw fail.error({
+                message: 'Invalid task branch format. Expected: task/feature-name/task-name'
+            })
+        }
+
+        const featureName = pathParts[0]
+        const featurePrefix = await feature.prefix('feature')
+        if (!featurePrefix) {
+            throw fail.error({
+                message: 'Feature prefix not configured'
+            })
+        }
+
+        const originBranch = git.BranchRef.fromName(`${featurePrefix}${featureName}`)
+        if (!(await originBranch.exists())) {
+            throw fail.error({
+                message: `Origin feature branch "${originBranch.name}" does not exist`
+            })
+        }
+
+        return originBranch
+    }
+
+    /**
+     * Check if currently on a feature branch
+     */
+    export async function requireFeatureBranch(): Promise<{ branch: git.BranchRef, name: string }> {
+        try {
+            return await feature.current('You must be on a feature branch to start a task', 'feature')
+        } catch (error) {
+            throw fail.error({
+                message: 'You must be on a feature branch to start a task. Use "Gitflow: Feature: start" first.'
+            })
+        }
+    }
+
+    export async function start(task_name: string) {
+        console.assert(!!task_name)
+        await requireFlowEnabled()
+
+        // Ensure we're on a feature branch
+        const currentFeature = await requireFeatureBranch()
+
+        const prefix = await task.prefix()
+        if (!prefix) {
+            throw throwNotInitializedError()
+        }
+
+        // Create task branch name: task/feature-name/task-name
+        const taskBranchName = `${prefix}${currentFeature.name}/${task_name}`
+        const new_branch = git.BranchRef.fromName(taskBranchName)
+
+        // Check if task branch already exists
+        if (await new_branch.exists()) {
+            throw fail.error({
+                message: `Task branch "${new_branch.name}" already exists`
+            })
+        }
+
+        // Ensure feature branch is clean
+        await git.requireClean()
+
+        return withProgress(
+            {
+                location: vscode.ProgressLocation.Window,
+                title: 'Creating task branch...',
+            },
+            async (pr) => {
+                pr.report({ message: 'Creating task branch...' })
+
+                // Create task branch from current feature branch
+                await cmd.executeRequired(git.info.path, [
+                    'checkout',
+                    '-b',
+                    new_branch.name,
+                    currentFeature.branch.name,
+                ])
+
+                vscode.window.showInformationMessage(
+                    `Task branch "${new_branch.name}" created successfully from feature "${currentFeature.branch.name}"!`
+                )
+            }
+        )
+    } export async function finish() {
+        await requireFlowEnabled()
+
+        const prefix = await task.prefix()
+        if (!prefix) {
+            throw throwNotInitializedError()
+        }
+
+        const current_task = await task.current()
+        if (!current_task) {
+            throw fail.error({
+                message: 'Not currently on a task branch'
+            })
+        }
+
+        // Get the origin feature branch
+        const originFeature = await getOriginFeatureBranch()
+
+        // Ensure working directory is clean
+        await git.requireClean()
+
+        return withProgress(
+            {
+                location: vscode.ProgressLocation.Window,
+                title: 'Finishing task...',
+            },
+            async (pr) => {
+                pr.report({ message: 'Checking out feature branch...' })
+
+                // Checkout the origin feature branch
+                await git.checkout(originFeature)
+
+                pr.report({ message: 'Merging task into feature...' })
+
+                // Merge task branch into feature branch
+                if (config.squashFeatureDuringMerge) {
+                    await cmd.executeRequired(git.info.path, [
+                        'merge',
+                        '--squash',
+                        current_task.name,
+                    ])
+                    await cmd.executeRequired(git.info.path, [
+                        'commit',
+                        '-m',
+                        `Finish task: ${current_task.name}`,
+                    ])
+                } else {
+                    await git.merge(current_task)
+                }
+
+                // Clean up and delete task branch if configured
+                if (config.deleteBranchOnFinish) {
+                    pr.report({ message: 'Cleaning up task branch...' })
+                    await cmd.executeRequired(git.info.path, [
+                        'branch',
+                        '-d',
+                        current_task.name,
+                    ])
+                }
+
+                vscode.window.showInformationMessage(
+                    `Task "${current_task.name}" finished and merged into "${originFeature.name}"! You are now on the feature branch.`
+                )
+            }
+        )
     }
 }

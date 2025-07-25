@@ -36,6 +36,10 @@ class ConfigReader {
     get default_production(): string {
         return this._readConfig<string>('default.production', 'master')
     }
+
+    get default_task(): string {
+        return this._readConfig<string>('default.task', 'task')
+    }
 }
 
 export const config = new ConfigReader()

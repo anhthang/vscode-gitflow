@@ -70,6 +70,16 @@
         "category": "Gitflow"
       },
       {
+        "command": "gitflow.taskStart",
+        "title": "Task: start",
+        "category": "Gitflow"
+      },
+      {
+        "command": "gitflow.taskFinish",
+        "title": "Task: finish",
+        "category": "Gitflow"
+      },
+      {
         "command": "gitflow.releaseStart",
         "title": "Release: start",
         "category": "Gitflow"
@@ -126,6 +136,11 @@
           "type": "string",
           "default": "master",
           "description": "Default name for the production branch [master]"
+        },
+        "gitflow.default.task": {
+          "type": "string",
+          "default": "task/",
+          "description": "Default prefix for task branches [task/]"
         }
       }
     }

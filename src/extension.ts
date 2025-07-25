@@ -151,6 +151,22 @@ async function setup(disposables: vscode.Disposable[]) {
             await selectRepo()
             await runWrapped(flow.hotfix.finish)
         }),
+        vscode.commands.registerCommand('gitflow.taskStart', async () => {
+            await selectRepo()
+            await runWrapped(flow.requireFlowEnabled)
+            const name = await vscode.window.showInputBox({
+                placeHolder: 'task-name',
+                prompt: 'The name of the task',
+            })
+            if (!name) {
+                return
+            }
+            await runWrapped(flow.task.start, [name.split(' ').join('-')])
+        }),
+        vscode.commands.registerCommand('gitflow.taskFinish', async () => {
+            await selectRepo()
+            await runWrapped(flow.task.finish)
+        }),
     ]
     // add disposable
     disposables.push(...commands)
