@@ -1,3 +1,5 @@
+# Ignore macOS system files
+.DS_Store
 
 # Created by https://www.gitignore.io/api/node,linux,macos,windows,webstorm
 # Edit at https://www.gitignore.io/?templates=node,linux,macos,windows,webstorm
