@@ -5,12 +5,24 @@
 This extension provides integration and support for [gitflow](http://nvie.com/posts/a-successful-git-branching-model/). It is based on [this gitflow implementation](https://github.com/nvie/gitflow) and intends to be fully compatible with it.
 
 ## ✨ What's new
+
+* Card integration for branch naming (feature, bugfix, hotfix, release, support, task) with customizable template
+* Commands and configuration for task management in the Gitflow workflow
+* Settings for offline work and optional sync checking
+
+## 🚀 Features
+
 * Workspace support 🥳
 * Squash feature during merge (default: false)
 * Fast-forward merge feature into develop branch if only 1 commit
-* Better error message
+* Better error messages
+* Card-based branch naming for all branch types
+* Task management commands and configuration
+* Offline mode and sync check options
+* Improved codebase structure
 
-### 📒 Todoist
+## 📒 Todoist
+
 * Setting to allow fast-forward merge feature
 * Add gitflow funtions into SCM
 

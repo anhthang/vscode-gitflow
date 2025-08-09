@@ -27,8 +27,8 @@ export namespace fs {
         })
     }
 
-    export function remove(path: string) {
-        return new Promise((resolve, reject) => {
+    export function remove(path: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             nodefs.unlink(path, (err) => {
                 if (err) reject(err)
                 else resolve()

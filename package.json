@@ -2,7 +2,7 @@
   "name": "gitflow",
   "displayName": "gitflow",
   "description": "Gitflow integration and support in Visual Studio Code",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "publisher": "buianhthang",
   "repository": {
     "type": "git",
@@ -17,7 +17,8 @@
     "flow"
   ],
   "engines": {
-    "vscode": "^1.45.0"
+    "vscode": "^1.74.0",
+    "node": ">=16.0.0"
   },
   "categories": [
     "Other"
@@ -30,7 +31,7 @@
   "activationEvents": [
     "*"
   ],
-  "main": "./out/src/extension",
+  "main": "./out/extension",
   "contributes": {
     "commands": [
       {
@@ -69,6 +70,16 @@
         "category": "Gitflow"
       },
       {
+        "command": "gitflow.taskStart",
+        "title": "Task: start",
+        "category": "Gitflow"
+      },
+      {
+        "command": "gitflow.taskFinish",
+        "title": "Task: finish",
+        "category": "Gitflow"
+      },
+      {
         "command": "gitflow.releaseStart",
         "title": "Release: start",
         "category": "Gitflow"
@@ -90,45 +101,119 @@
       }
     ],
     "configuration": {
+      "title": "Gitflow",
       "properties": {
         "gitflow.squashFeatureDuringMerge": {
           "type": "boolean",
           "default": false,
-          "description": "Squash feature during merge"
+          "description": "Squash feature during merge",
+          "order": 1
         },
         "gitflow.deleteBranchOnFinish": {
           "type": "boolean",
           "default": true,
-          "description": "After finishing a branch, delete the branch"
+          "description": "After finishing a branch, delete the branch",
+          "order": 2
         },
         "gitflow.deleteRemoteBranches": {
           "type": "boolean",
           "default": true,
-          "description": "If true, and `gitflow.deleteBranchOnFinish` is true, remote branches will be deleted when finishing a branch"
+          "description": "If true, and `gitflow.deleteBranchOnFinish` is true, remote branches will be deleted when finishing a branch",
+          "order": 3
+        },
+        "gitflow.requireSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "🔒 Synchronization: Require branches to be synchronized with remote before creating features",
+          "markdownDescription": "**🔒 Synchronization Control**\n\nRequire branches to be synchronized with remote before creating features. Useful for corporate projects that need strict synchronization.",
+          "order": 10
+        },
+        "gitflow.allowOfflineWork": {
+          "type": "boolean",
+          "default": true,
+          "description": "🌐 Offline Work: Allow creating features without checking remote synchronization",
+          "markdownDescription": "**🌐 Offline Work Support**\n\nAllow creating features without checking remote synchronization. Perfect for working without internet connection or when remotes are temporarily unavailable.",
+          "order": 11
         },
         "gitflow.default.development": {
           "type": "string",
           "default": "develop",
-          "description": "Default name for the development branch [develop]"
+          "description": "🌿 Branch Names: Default name for the development branch",
+          "markdownDescription": "**🌿 Default Branch Names**\n\nDefault name for the development branch. Usually 'develop' or 'main' depending on your team's convention.",
+          "order": 20
         },
         "gitflow.default.production": {
           "type": "string",
           "default": "master",
-          "description": "Default name for the production branch [master]"
+          "description": "🌿 Branch Names: Default name for the production branch",
+          "markdownDescription": "**🌿 Default Branch Names**\n\nDefault name for the production branch. Usually 'master' or 'main' depending on your repository setup.",
+          "order": 21
+        },
+        "gitflow.default.task": {
+          "type": "string",
+          "default": "task",
+          "description": "🌿 Branch Names: Default prefix for task branches",
+          "markdownDescription": "**🌿 Default Branch Names**\n\nDefault prefix for task branches. Tasks are sub-branches created from features for specific work items.",
+          "order": 22
+        },
+        "gitflow.cardIntegration.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "🎫 Card Integration: Enable card-based branch naming",
+          "markdownDescription": "**🎫 Card Integration Setup**\n\nEnable integration with project management tools (Jira, Azure DevOps, GitHub Issues, etc.). When enabled, branch names will include card/ticket numbers for better traceability.",
+          "order": 30
+        },
+        "gitflow.cardIntegration.required": {
+          "type": "boolean",
+          "default": false,
+          "description": "🎫 Card Integration: Make card ID mandatory",
+          "markdownDescription": "**🎫 Card ID Requirement**\n\nWhen enabled, card ID will be required for all new branches. When disabled, card ID is optional and traditional branch names are still allowed.",
+          "order": 34
+        },
+        "gitflow.cardIntegration.prefix": {
+          "type": "string",
+          "default": "",
+          "description": "🎫 Card Integration: Card prefix (e.g., JIRA-, PROJ-, or empty for numbers only)",
+          "markdownDescription": "**🎫 Card Prefix Configuration**\n\nPrefix to add before card IDs. Examples:\n- `JIRA-` → JIRA-123456\n- `PROJ-` → PROJ-789\n- Empty → 123456 (numbers only)",
+          "order": 31
+        },
+        "gitflow.cardIntegration.format": {
+          "type": "string",
+          "default": "{type}/{prefix}{cardId}-{name}",
+          "description": "🎫 Card Integration: Branch name template",
+          "markdownDescription": "**🎫 Branch Name Template**\n\nTemplate for generating branch names. Available placeholders:\n- `{type}` - Branch type (feature, task, hotfix) **[Required]**\n- `{name}` - Branch description **[Required]**\n- `{prefix}` - Card prefix (optional)\n- `{cardId}` - Card ID number (optional)\n\nExample: `{type}/{prefix}{cardId}-{name}` → `feature/JIRA-123456-new-login`",
+          "pattern": ".*\\{type\\}.*\\{name\\}.*",
+          "patternErrorMessage": "Template must include both {type} and {name} placeholders",
+          "order": 32
+        },
+        "gitflow.cardIntegration.validation": {
+          "type": "string",
+          "default": "^[0-9]+$",
+          "description": "🎫 Card Integration: Regex pattern for card ID validation",
+          "markdownDescription": "**🎫 Card ID Validation**\n\nRegular expression to validate card IDs. Examples:\n- `^[0-9]+$` - Numbers only (123456)\n- `^[A-Z]{2}[0-9]{4}$` - Two letters + 4 numbers (AB1234)\n- `^[0-9]{6}$` - Exactly 6 digits (123456)",
+          "order": 33
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "./node_modules/typescript/bin/tsc -p ./",
-    "compile": "./node_modules/typescript/bin/tsc -watch -p ./",
-    "postinstall": "node ./node_modules/vscode/bin/install"
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/mocha": "^7.0.2",
-    "@types/node": "~13.13.5",
-    "@types/vscode": "1.45.0",
-    "mocha": "^7.1.2",
-    "typescript": "^3.8.3"
+    "@types/mocha": "^10.0.6",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.3.3"
   }
 }
