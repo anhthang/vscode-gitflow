@@ -101,7 +101,7 @@
       }
     ],
     "configuration": {
-      "title": "GitFlow",
+      "title": "Gitflow",
       "properties": {
         "gitflow.squashFeatureDuringMerge": {
           "type": "boolean",

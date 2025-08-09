@@ -11,6 +11,7 @@ This extension provides integration and support for [gitflow](http://nvie.com/po
 * Settings for offline work and optional sync checking
 
 ## 🚀 Features
+
 * Workspace support 🥳
 * Squash feature during merge (default: false)
 * Fast-forward merge feature into develop branch if only 1 commit
@@ -20,7 +21,8 @@ This extension provides integration and support for [gitflow](http://nvie.com/po
 * Offline mode and sync check options
 * Improved codebase structure
 
-### 📒 Todoist
+## 📒 Todoist
+
 * Setting to allow fast-forward merge feature
 * Add gitflow funtions into SCM
 
