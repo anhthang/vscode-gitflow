@@ -4,23 +4,16 @@ import * as vscode from 'vscode'
 import { findGit, git } from './git'
 import { flow } from './flow'
 import { fail } from './fail'
+import { resolveActiveRepository } from './repository'
 
-async function selectRepo() {
-    const folders = vscode.workspace.workspaceFolders || []
-    if (folders.length < 2) {
+async function selectRepo(): Promise<void> {
+    const repo = await resolveActiveRepository()
+    if (!repo) {
         return
     }
-
-    const repo = await vscode.window.showWorkspaceFolderPick({
-        placeHolder: 'Select one repository',
-    })
-    if (!repo) {
-        fail.error({
-            message: 'You have to select one repository',
-        })
-    }
-    flow.workingDir = repo?.uri.path
-    flow.workingRepo = repo?.name
+    flow.workingDir = repo.rootUri.fsPath
+    const folder = vscode.workspace.getWorkspaceFolder(repo.rootUri)
+    flow.workingRepo = folder?.name ?? repo.rootUri.fsPath
 }
 
 async function runWrapped<T>(
